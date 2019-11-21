@@ -85,6 +85,8 @@ class ActivationStoringResNet(nn.Module):
                 module.activation = activation
                 module_stack.append(module)
                 activation = module(activation)
+                if isinstance(module, nn.AdaptiveAvgPool2d):
+                    activation = activation.view(activation.size(0), -1)
 
         output = activation
 
@@ -116,6 +118,8 @@ class DTD(nn.Module):
             elif isinstance(module, Bottleneck):
                 R = self.bottleneck_R_calculate(module, R)
             else:
+                if isinstance(module, nn.AdaptiveAvgPool2d):
+                    R = R.view(R.size(0), R.size(1), 1, 1)
                 activation = module.activation
                 R = self.R_calculate(activation, module, R)
 
@@ -173,12 +177,11 @@ class DTD(nn.Module):
         elif isinstance(module, nn.ReLU):
             R = self.backprop_relu(activation, R)
             return R
-        elif isinstance(module, nn.AvgPool2d):
-            R = self.backprop_avg_pool(activation, module, R)
-            return R
         elif isinstance(module, nn.MaxPool2d):
-            R = self.backprop_max_pool(activation, modul,e R)
+            R = self.backprop_max_pool(activation, module, R)
             return R
+        elif isinstance(module, nn.AdaptiveAvgPool2d):
+            R = self.backprop_adap_avg_pool(activation, R)
         else:
             raise RuntimeError(f"{type(module)} can not handled currently")
 
@@ -260,12 +263,10 @@ class DTD(nn.Module):
     def backprop_relu(self, activation, R):
         return R
 
-    def backprop_avg_pool(self, activation, module, R):
-        kernel_size, stride, padding = module.kernel_size, module.stride, module.padding
-        Z = F.avg_pool2d(activation, kernel_size=kernel_size, \
-                         stride=stride, padding=padding) + 1e-9
+    def backprop_adap_avg_pool(self, activation, R):
+        kernel_size = activation.shape[-2:]
+        Z = F.avg_pool2d(activation, kernel_size=kernel_size) * kernel_size[0] ** 2 + 1e-9
         S = R / Z
-        C = 
         R = activation * S
 
         return R
