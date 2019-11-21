@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import queue
+import pdb
 from collections import OrderedDict
 from .resnet import BasicBlock, Bottleneck
 
@@ -9,7 +9,7 @@ from .resnet import BasicBlock, Bottleneck
 def model_flattening(module_tree):
     module_list = []
     children_list = list(module_tree.children())
-    if len(children_list) == 0 or isinstance(module_tree, BasicBlock) \
+    if len(children_list) == 0 or isinstance(module_tree, BasicBlock) or \
         isinstance(module_tree, Bottleneck):
         return [module_tree]
     else:
@@ -102,9 +102,9 @@ class DTD(nn.Module):
     def forward(self, module_stack, y, class_num):
         R = torch.eye(class_num)[torch.max(y, 1)[1]]
 
-        for _ in range(module_stack):
+        for i in range(len(module_stack)):
             module = module_stack.pop()
-            if i == 0:
+            if len(module_stack) == 0:
                 if isinstance(module, nn.Linear):
                     activation = module.activation
                     R = self.backprop_dense_input(activation, module, R)
@@ -182,6 +182,7 @@ class DTD(nn.Module):
             return R
         elif isinstance(module, nn.AdaptiveAvgPool2d):
             R = self.backprop_adap_avg_pool(activation, R)
+            return R
         else:
             raise RuntimeError(f"{type(module)} can not handled currently")
 
