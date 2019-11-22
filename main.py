@@ -49,18 +49,15 @@ def test(args):
     logger.addHandler(stream_handler)
     logging.info('data loading')
 
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
     test_dataset = datasets.ImageFolder(
         args.test_dir,
         transforms.Compose([
             transforms.Resize(224),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            normalize,
         ]))
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                             num_workers=args.num_workers, pin_memory=True, shuffle=False,
+                             num_workers=args.num_workers, pin_memory=True, shuffle=True,
                              drop_last=False)
 
     logging.info('prepare model')
@@ -77,24 +74,25 @@ def test(args):
         model = resnet152(pretrained=True)
     else:
         raise ValueError(f"{args.resnet_model} is not available")
+    model.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
     model.train(False)
     module_list = sa_map.model_flattening(model)
     act_store_model = sa_map.ActivationStoringResNet(module_list)
     DTD = sa_map.DTD()
-    DTD.train(False)
+    loss_func = nn.CrossEntropyLoss()
 
     logging.info('testing with saliency mapping start')
 
     test_top1 = 0
     test_top5 = 0
     test_count = 0
-    act_store_model.train(False)
     with torch.no_grad():
         for i, (image, target) in enumerate(test_loader):
             image = Variable(image)
             target = Variable(target)
 
             module_stack, output = act_store_model(image)
+            loss = loss_func(output, target)
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
             test_count += image.size(0)
             test_top1 += acc1[0] * image.size(0)
@@ -102,16 +100,13 @@ def test(args):
             test_top5 += acc5[0] * image.size(0)
             test_top5_avg = test_top5 / test_count
 
-            if i % 10 == 0:
+            if i % 100 == 0:
                 logging.info('sample saliency map generation')
                 saliency_map = DTD(module_stack, output, 1000)
                 saliency_map = torch.sum(saliency_map, dim=1)
                 saliency_map_sample = saliency_map[0].detach().numpy()
-                saliency_map_sample = np.uint8(saliency_map_sample * 255)
-                #min_max_range = np.amax(saliency_map_sample) - np.amin(saliency_map_sample)
-                #saliency_map_sample = np.uint8(((saliency_map_sample - np.amin(saliency_map_sample)) \
-                #    / min_max_range) * 255)
-                saliency_heatmap = cv2.applyColorMap(saliency_map_sample, cv2.COLORMAP_HOT)
+                saliency_map_sample = np.uint8(saliency_map_sample*255)
+                saliency_heatmap = cv2.applyColorMap(saliency_map_sample, cv2.COLORMAP_BONE)
                 if not os.path.exists(args.sample_dir):
                     os.mkdir(args.sample_dir)
                 heatmap_name = f"{i}th_sample.png"
@@ -122,7 +117,8 @@ def test(args):
 
             logging.info((f"Test, step #{i}/{len(test_loader)},, "
                           f"top1 accuracy {test_top1_avg:.3f}, "
-                          f"top5 accuracy {test_top5_avg:.3f}"))
+                          f"top5 accuracy {test_top5_avg:.3f}, "
+                          f"loss {torch.mean(loss):.3f}, "))
 
     log = '\n'.join([
         f'ImageNet pretrained ResNet Saliency Mapping',
@@ -136,8 +132,8 @@ def test(args):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_dir', type=str, default=None)
-    parser.add_argument('--batch_size', type=int, default= 1)
-    parser.add_argument('--num_workers', type=int, default=10)
+    parser.add_argument('--batch_size', type=int, default= 16)
+    parser.add_argument('--num_workers', type=int, default=5)
     parser.add_argument('--resnet_model', type=str, default='resnet34',
                         choices=['resnet18', 'resnet34', 'resnet50',
                                  'resnet101', 'resnet152'])

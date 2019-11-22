@@ -40,6 +40,7 @@ class ActivationStoringResNet(nn.Module):
             for i in range(len(basic_block.downsample)):
                 basic_block.downsample[i].activation = identity
                 identity = basic_block.downsample[i](identity)
+            basic_block.downsample.activation = identity
         output = activation + identity
         output = basic_block.relu(output)
 
@@ -64,6 +65,7 @@ class ActivationStoringResNet(nn.Module):
             for i in range(len(bottleneck.downsample)):
                 bottleneck.downsample[i].activation = identity
                 identity = bottleneck.downsample[i](identity)
+            bottleneck.downsample.activation = identity
         output = activation + identity
         output = bottleneck.relu(output)
 
@@ -127,7 +129,7 @@ class DTD(nn.Module):
 
     def basic_block_R_calculate(self, basic_block, R):
         if basic_block.downsample is not None:
-            identity = basic_block.downsample[-1].activation
+            identity = basic_block.downsample.activation
         else:
             identity = basic_block.conv1.activation
         activation = basic_block.bn2.activation
@@ -146,7 +148,7 @@ class DTD(nn.Module):
 
     def bottleneck_R_calculate(self, bottleneck, R):
         if bottleneck.downsample is not None:
-            identity = bottleneck.downsample[-1].activation
+            identity = bottleneck.downsample.activation
         else:
             identity = bottleneck.conv1.activation
         activation = bottleneck.bn3.activation
