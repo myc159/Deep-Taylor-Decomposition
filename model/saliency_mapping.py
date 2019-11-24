@@ -30,17 +30,16 @@ class ActivationStoringResNet(nn.Module):
 
         basic_block.conv1.activation = activation
         activation = basic_block.conv1(activation)
-        basic_block.bn1.activation = activation
         activation = basic_block.relu(basic_block.bn1(activation))
         basic_block.conv2.activation = activation
         activation = basic_block.conv2(activation)
-        basic_block.bn2.activation = activation
         activation = basic_block.bn2(activation)
         if basic_block.downsample is not None:
             for i in range(len(basic_block.downsample)):
                 basic_block.downsample[i].activation = identity
                 identity = basic_block.downsample[i](identity)
-            basic_block.downsample.activation = identity
+            basic_block.identity = identity
+        basic_block.activation = activation
         output = activation + identity
         output = basic_block.relu(output)
 
@@ -51,21 +50,19 @@ class ActivationStoringResNet(nn.Module):
 
         bottleneck.conv1.activation = activation
         activation = bottleneck.conv1(activation)
-        bottleneck.bn1.activation = activation
         activation = bottleneck.relu(bottleneck.bn1(activation))
         bottleneck.conv2.activation = activation
         activation = bottleneck.conv2(activation)
-        bottleneck.bn2.activation = activation
         activation = bottleneck.relu(bottleneck.bn2(activation))
         bottleneck.conv3.activation = activation
         activation = bottleneck.conv3(activation)
-        bottleneck.bn3.activation = activation
         activation = bottleneck.bn3(activation)
         if bottleneck.downsample is not None:
             for i in range(len(bottleneck.downsample)):
                 bottleneck.downsample[i].activation = identity
                 identity = bottleneck.downsample[i](identity)
-            bottleneck.downsample.activation = identity
+            bottleneck.identity = identity
+        bottleneck.activation = activation
         output = activation + identity
         output = bottleneck.relu(output)
 
@@ -129,10 +126,10 @@ class DTD(nn.Module):
 
     def basic_block_R_calculate(self, basic_block, R):
         if basic_block.downsample is not None:
-            identity = basic_block.downsample.activation
+            identity = basic_block.identity
         else:
             identity = basic_block.conv1.activation
-        activation = basic_block.bn2.activation
+        activation = basic_block.activation
         R0, R1 = self.backprop_skip_connect(activation, identity, R)
         R0 = self.backprop_conv(basic_block.conv2.activation, basic_block.conv2, R0)
         R0 = self.backprop_conv(basic_block.conv1.activation, basic_block.conv1, R0)
@@ -148,10 +145,10 @@ class DTD(nn.Module):
 
     def bottleneck_R_calculate(self, bottleneck, R):
         if bottleneck.downsample is not None:
-            identity = bottleneck.downsample.activation
+            identity = bottleneck.identity
         else:
             identity = bottleneck.conv1.activation
-        activation = bottleneck.bn3.activation
+        activation = bottleneck.activation
         R0, R1 = self.backprop_skip_connect(activation, identity, R)
         R0 = self.backprop_conv(bottleneck.conv3.activation, bottleneck.conv3, R0)
         R0 = self.backprop_conv(bottleneck.conv2.activation, bottleneck.conv2, R0)
@@ -184,6 +181,9 @@ class DTD(nn.Module):
             return R
         elif isinstance(module, nn.AdaptiveAvgPool2d):
             R = self.backprop_adap_avg_pool(activation, R)
+            return R
+        elif isinstance(module, nn.Dropout):
+            R = self.backprop_dropout(R)
             return R
         else:
             raise RuntimeError(f"{type(module)} can not handled currently")
@@ -260,7 +260,7 @@ class DTD(nn.Module):
     def backprop_bn(self, R):
         return R
 
-    def backprop_drop(self, R):
+    def backprop_dropout(self, R):
         return R
 
     def backprop_relu(self, activation, R):

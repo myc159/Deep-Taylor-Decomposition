@@ -57,7 +57,7 @@ def test(args):
             transforms.ToTensor(),
         ]))
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size,
-                             num_workers=args.num_workers, pin_memory=True, shuffle=True,
+                             num_workers=args.num_workers, pin_memory=True, shuffle=False,
                              drop_last=False)
 
     logging.info('prepare model')
@@ -74,7 +74,6 @@ def test(args):
         model = resnet152(pretrained=True)
     else:
         raise ValueError(f"{args.resnet_model} is not available")
-    model.maxpool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
     model.train(False)
     module_list = sa_map.model_flattening(model)
     act_store_model = sa_map.ActivationStoringResNet(module_list)
@@ -100,12 +99,14 @@ def test(args):
             test_top5 += acc5[0] * image.size(0)
             test_top5_avg = test_top5 / test_count
 
-            if i % 100 == 0:
+            if i % 20 == 0:
                 logging.info('sample saliency map generation')
                 saliency_map = DTD(module_stack, output, 1000)
                 saliency_map = torch.sum(saliency_map, dim=1)
                 saliency_map_sample = saliency_map[0].detach().numpy()
-                saliency_map_sample = np.uint8(saliency_map_sample*255)
+                saliency_map_sample = np.maximum(0, saliency_map_sample)*255*args.heatmap_scale
+                saliency_map_sample = np.minimum(255, saliency_map_sample)
+                saliency_map_sample = np.uint8(saliency_map_sample)
                 saliency_heatmap = cv2.applyColorMap(saliency_map_sample, cv2.COLORMAP_BONE)
                 if not os.path.exists(args.sample_dir):
                     os.mkdir(args.sample_dir)
@@ -132,8 +133,9 @@ def test(args):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_dir', type=str, default=None)
-    parser.add_argument('--batch_size', type=int, default= 16)
-    parser.add_argument('--num_workers', type=int, default=5)
+    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--num_workers', type=int, default=1)
+    parser.add_argument('--heatmap_scale', type=int, default=5000)
     parser.add_argument('--resnet_model', type=str, default='resnet34',
                         choices=['resnet18', 'resnet34', 'resnet50',
                                  'resnet101', 'resnet152'])
