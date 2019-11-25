@@ -62,18 +62,38 @@ def test(args):
 
     logging.info('prepare model')
 
-    if args.resnet_model == 'resnet18':
-        model = resnet18(pretrained=True)
-    elif args.resnet_model == 'resnet34':
-        model = resnet34(pretrained=True)
-    elif args.resnet_model == 'resnet50':
-        model = resnet50(pretrained=True)
-    elif args.resnet_model == 'resnet101':
-        model = resnet101(pretrained=True)
-    elif args.resnet_model == 'resnet152':
-        model = resnet152(pretrained=True)
+    if args.model.startswith('vgg'):
+        model_archi = 'vgg'
+        if args.model.endswith('11'):
+            model = vgg11(pretrained=True)
+        elif args.model.endswith('11_bn'):
+            model = vgg11_bn(pretrained=True)
+        elif args.model.endswith('13'):
+            model = vgg13(pretrained=True)
+        elif args.model.endswith('13_bn'):
+            model = vgg13_bn(pretrained=True)
+        elif args.model.endswith('16'):
+            model = vgg16(pretrained=True)
+        elif args.model.endswith('16_bn'):
+            model = vgg16_bn(pretrained=True)
+        elif args.model.endswith('19'):
+            model = vgg19(pretrained=True)
+        elif args.model.endswith('19_bn'):
+            model = vgg19_bn(pretrained=True)
+    elif args.model.startswith('resnet'):
+        model_archi = 'resnet'
+        if args.model.endswith('18'):
+            model = resnet18(pretrained=True)
+        elif args.model.endswith('34'):
+            model = resnet34(pretrained=True)
+        elif args.model.endswith('50'):
+            model = resnet50(pretrained=True)
+        elif args.model.endswith('101'):
+            model = resnet101(pretrained=True)
+        elif args.model.endswith('152'):
+            model = resnet152(pretrained=True)
     else:
-        raise ValueError(f"{args.resnet_model} is not available")
+        raise ValueError(f"{args.model} is not available")
     model.train(False)
     module_list = sa_map.model_flattening(model)
     act_store_model = sa_map.ActivationStoringResNet(module_list)
@@ -101,7 +121,7 @@ def test(args):
 
             if i % 20 == 0:
                 logging.info('sample saliency map generation')
-                saliency_map = DTD(module_stack, output, 1000)
+                saliency_map = DTD(module_stack, output, 1000, model_archi)
                 saliency_map = torch.sum(saliency_map, dim=1)
                 saliency_map_sample = saliency_map[0].detach().numpy()
                 saliency_map_sample = np.maximum(0, saliency_map_sample)*255*args.heatmap_scale
@@ -132,14 +152,19 @@ def test(args):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--test_dir', type=str, default=None)
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--test_dir', type=str, default=None,
+                        help='directory path of ImageNet dataset')
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help='batch size of inference')
     parser.add_argument('--num_workers', type=int, default=1)
-    parser.add_argument('--heatmap_scale', type=int, default=5000)
-    parser.add_argument('--resnet_model', type=str, default='resnet34',
-                        choices=['resnet18', 'resnet34', 'resnet50',
-                                 'resnet101', 'resnet152'])
-    parser.add_argument('--sample_dir', type=str, default='saliency_map_sample')
+    parser.add_argument('--heatmap_scale', type=int, default=5000,
+                        help='scale value for heatmap visualization')
+    parser.add_argument('--model', type=str, default='vgg16_bn',
+                        choices=['vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16',
+                                 'vgg16_bn', 'vgg19', 'vgg19_bn', 'resnet18', 'resnet34',
+                                 'resnet50', 'resnet101', 'resnet152'])
+    parser.add_argument('--sample_dir', type=str, default='saliency_map_sample',
+                        help='directory of saliency map heatmap sample')
 
     args = parser.parse_args()
 

@@ -98,7 +98,7 @@ class DTD(nn.Module):
         self.lowest = lowest
         self.highest = highest
 
-    def forward(self, module_stack, y, class_num):
+    def forward(self, module_stack, y, class_num, model_archi):
         R = torch.eye(class_num)[torch.max(y, 1)[1]]
 
         for i in range(len(module_stack)):
@@ -118,7 +118,11 @@ class DTD(nn.Module):
                 R = self.bottleneck_R_calculate(module, R)
             else:
                 if isinstance(module, nn.AdaptiveAvgPool2d):
-                    R = R.view(R.size(0), R.size(1), 1, 1)
+                    if model_archi == 'vgg':
+                        R = R.view(R.size(0), -1, 7, 7)
+                        continue
+                    elif model_archi == 'resnet':
+                        R = R.view(R.size(0), R.size(1), 1, 1)
                 activation = module.activation
                 R = self.R_calculate(activation, module, R)
 
