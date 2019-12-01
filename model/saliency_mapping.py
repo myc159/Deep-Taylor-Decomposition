@@ -20,9 +20,9 @@ def model_flattening(module_tree):
         return module_list
 
 
-class ActivationStoringResNet(nn.Module):
+class ActivationStoringNet(nn.Module):
     def __init__(self, module_list):
-        super(ActivationStoringResNet, self).__init__()
+        super(ActivationStoringNet, self).__init__()
         self.module_list = module_list
 
     def basic_block_forward(self, basic_block, activation):
