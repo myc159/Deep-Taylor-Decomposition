@@ -94,6 +94,7 @@ def test(args):
             model = resnet152(pretrained=True)
     else:
         raise ValueError(f"{args.model} is not available")
+        
     model.train(False)
     module_list = sa_map.model_flattening(model)
     act_store_model = sa_map.ActivationStoringNet(module_list)
