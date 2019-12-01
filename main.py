@@ -96,7 +96,7 @@ def test(args):
         raise ValueError(f"{args.model} is not available")
     model.train(False)
     module_list = sa_map.model_flattening(model)
-    act_store_model = sa_map.ActivationStoringResNet(module_list)
+    act_store_model = sa_map.ActivationStoringNet(module_list)
     DTD = sa_map.DTD()
     loss_func = nn.CrossEntropyLoss()
 
