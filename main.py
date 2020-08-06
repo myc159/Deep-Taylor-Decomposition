@@ -143,7 +143,7 @@ def test(args):
                           f"loss {torch.mean(loss):.3f}, "))
 
     log = '\n'.join([
-        f'ImageNet pretrained ResNet Saliency Mapping',
+        f'ImageNet pretrained {args.model} Saliency Mapping',
         f'# Test Result',
         f'- top1 acc: {test_top1_avg:.4f}',
         f'- top5 acc: {test_top5_avg:.4f}'])
